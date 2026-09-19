@@ -18,7 +18,16 @@ import {
   getPurchaseRequests,
   getMyPurchaseRequests,
   closePurchaseRequest,
+  getPurchaseRequestById,
 } from '../controllers/purchaseRequest.controller';
+import {
+  selectBook,
+  cancelTrade,
+  rejectTrade,
+  completeTradeController,
+  getMyTrades,
+  getTrade,
+} from '../controllers/trade.controller';
 import { sendMessage, getConversations, getMessages, getUnreadCount } from '../controllers/message.controller';
 import { createReview, getUserReviews as getUserReviewsPublic } from '../controllers/review.controller';
 
@@ -46,10 +55,21 @@ router.post('/favorites/toggle', authMiddleware, toggleFavorite);
 router.get('/favorites', authMiddleware, getFavorites);
 router.get('/browsing-history', authMiddleware, getBrowsingHistory);
 
+// 求购单（注意 /my/purchase-requests 需要在 /:id 之前注册）
 router.get('/purchase-requests', getPurchaseRequests);
 router.post('/purchase-requests', authMiddleware, createPurchaseRequest);
 router.get('/my/purchase-requests', authMiddleware, getMyPurchaseRequests);
+router.get('/purchase-requests/:id', authMiddleware, getPurchaseRequestById);
 router.put('/purchase-requests/:id/close', authMiddleware, closePurchaseRequest);
+// 买家在求购单中选定一本书 -> 预约并生成交易记录
+router.post('/purchase-requests/:id/select', authMiddleware, selectBook);
+
+// 交易记录
+router.get('/my/trades', authMiddleware, getMyTrades);
+router.get('/trades/:id', authMiddleware, getTrade);
+router.post('/trades/:id/cancel', authMiddleware, cancelTrade);
+router.post('/trades/:id/reject', authMiddleware, rejectTrade);
+router.post('/trades/:id/complete', authMiddleware, completeTradeController);
 
 router.post('/messages', authMiddleware, upload.array('images', 5), sendMessage);
 router.get('/messages/conversations', authMiddleware, getConversations);

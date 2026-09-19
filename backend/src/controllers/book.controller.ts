@@ -1,12 +1,19 @@
 import { Request, Response } from 'express';
-import { In, ILike, FindOperator, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { ILike, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { AppDataSource } from '../config/database';
 import { Book, BookStatus, SubjectCategory, BookCondition } from '../entities/Book';
+import { PurchaseRequest } from '../entities/PurchaseRequest';
+import { Trade } from '../entities/Trade';
 import { User } from '../entities/User';
-import { Favorite } from '../entities/Favorite';
 import { BrowsingHistory } from '../entities/BrowsingHistory';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { minioService } from '../services/minio.service';
+import {
+  countRequestsForBooks,
+  buildMatchReason,
+  normalizeCourseCode,
+  normalizeText,
+} from '../services/matching.service';
 
 export const createBook = async (req: AuthenticatedRequest, res: Response) => {
   const {
@@ -18,6 +25,8 @@ export const createBook = async (req: AuthenticatedRequest, res: Response) => {
     condition,
     tradeMethod,
     campus,
+    courseCode,
+    edition,
     category,
     description,
   } = req.body;
@@ -28,6 +37,15 @@ export const createBook = async (req: AuthenticatedRequest, res: Response) => {
   }
   if (files.length > 5) {
     return res.status(400).json({ message: '最多上传5张图片' });
+  }
+  if (!courseCode || !String(courseCode).trim()) {
+    return res.status(400).json({ message: '请填写课程代码' });
+  }
+  if (!edition || !String(edition).trim()) {
+    return res.status(400).json({ message: '请填写版次' });
+  }
+  if (!campus || !String(campus).trim()) {
+    return res.status(400).json({ message: '请选择校区' });
   }
 
   try {
@@ -48,7 +66,9 @@ export const createBook = async (req: AuthenticatedRequest, res: Response) => {
       condition,
       images: imageUrls,
       tradeMethod,
-      campus,
+      campus: String(campus).trim(),
+      courseCode: normalizeCourseCode(String(courseCode)),
+      edition: normalizeText(String(edition)),
       category,
       description,
       sellerId: req.userId!,
@@ -115,6 +135,10 @@ export const getBooks = async (req: Request, res: Response) => {
     },
   });
 
+  // 每本书对应的同校区/同课程代码/同版次活跃求购单数
+  const requestCounts = await countRequestsForBooks(books);
+  books.forEach((b) => (b.matchedRequestCount = requestCounts[b.id] ?? 0));
+
   res.json({
     books,
     pagination: {
@@ -129,6 +153,7 @@ export const getBooks = async (req: Request, res: Response) => {
 export const getBookById = async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = (req as AuthenticatedRequest).userId;
+  const { requestId } = req.query as { requestId?: string };
 
   const bookRepository = AppDataSource.getRepository(Book);
   const book = await bookRepository.findOne({
@@ -151,6 +176,20 @@ export const getBookById = async (req: Request, res: Response) => {
     return res.status(404).json({ message: '书籍不存在' });
   }
 
+  // 该书对应的活跃求购单数
+  const requestCounts = await countRequestsForBooks([book]);
+  book.matchedRequestCount = requestCounts[book.id] ?? 0;
+
+  // 从求购单跳转过来时，附上"为什么匹配"的原因
+  if (requestId) {
+    const purchaseRequest = await AppDataSource.getRepository(PurchaseRequest).findOne({
+      where: { id: requestId },
+    });
+    if (purchaseRequest) {
+      book.matchReason = buildMatchReason(purchaseRequest, book);
+    }
+  }
+
   if (userId && userId !== book.sellerId) {
     const historyRepository = AppDataSource.getRepository(BrowsingHistory);
     const history = historyRepository.create({
@@ -167,6 +206,10 @@ export const updateBookStatus = async (req: AuthenticatedRequest, res: Response)
   const { id } = req.params;
   const { status } = req.body;
 
+  if (!['available', 'reserved', 'sold'].includes(status)) {
+    return res.status(400).json({ message: '非法的书籍状态' });
+  }
+
   const bookRepository = AppDataSource.getRepository(Book);
   const book = await bookRepository.findOne({ where: { id } });
 
@@ -176,6 +219,18 @@ export const updateBookStatus = async (req: AuthenticatedRequest, res: Response)
 
   if (book.sellerId !== req.userId) {
     return res.status(403).json({ message: '无权限操作' });
+  }
+
+  // 该书存在进行中(pending)交易时，状态必须跟随交易流转，避免与预约状态不一致
+  if (book.status === 'reserved' || status === 'available') {
+    const pendingTrade = await AppDataSource.getRepository(Trade).findOne({
+      where: { bookId: id, status: 'pending' },
+    });
+    if (pendingTrade) {
+      return res.status(409).json({
+        message: '该书有进行中的交易，请在交易中拒绝或完成后再修改状态',
+      });
+    }
   }
 
   book.status = status;
@@ -237,6 +292,9 @@ export const getRecommendBooks = async (req: AuthenticatedRequest, res: Response
       take: 10,
     });
   }
+
+  const requestCounts = await countRequestsForBooks(books);
+  books.forEach((b) => (b.matchedRequestCount = requestCounts[b.id] ?? 0));
 
   res.json(books);
 };

@@ -15,6 +15,15 @@ export type BookCondition = 'new' | 'like_new' | 'good' | 'fair';
 export type BookStatus = 'available' | 'reserved' | 'sold';
 export type TradeMethod = 'meetup' | 'shipping';
 export type SubjectCategory = 'science' | 'humanities' | 'business' | 'arts' | 'other';
+export type TradeStatus = 'pending' | 'completed' | 'cancelled' | 'rejected';
+
+export interface MatchReason {
+  matched: boolean;
+  campus: boolean;
+  courseCode: boolean;
+  edition: boolean;
+  summary: string;
+}
 
 export interface Book {
   id: string;
@@ -27,11 +36,16 @@ export interface Book {
   images: string[];
   tradeMethod: TradeMethod;
   campus: string;
+  courseCode: string;
+  edition: string;
   category: SubjectCategory;
   description?: string;
   status: BookStatus;
   sellerId: string;
   seller?: User;
+  /** 同校区/同课程代码/同版次的活跃求购单数 */
+  matchedRequestCount?: number;
+  matchReason?: MatchReason;
   createdAt: string;
   updatedAt: string;
 }
@@ -50,17 +64,45 @@ export interface Message {
 export interface PurchaseRequest {
   id: string;
   bookTitle: string;
-  author?: string;
-  isbn?: string;
-  expectedPrice?: number;
-  conditions?: string[];
-  description?: string;
+  author?: string | null;
+  isbn?: string | null;
+  expectedPrice?: number | null;
+  conditions?: string[] | null;
+  description?: string | null;
   category: SubjectCategory;
   campus: string;
+  courseCode: string;
+  edition: string;
   status: 'active' | 'closed';
   requesterId: string;
   requester?: User;
+  /** 剩余可购买的同版候选书数 */
+  candidateCount?: number;
+  /** 详情页：候选书籍（仅求购者本人可见） */
+  candidateBooks?: Book[];
+  /** 详情页：当前进行中的交易概要 */
+  pendingTrade?: { id: string; bookId: string; status: TradeStatus } | null;
+  /** 我的求购单列表：进行中的交易 */
+  pendingTrades?: Array<{ id: string; bookId: string }>;
+  matchReason?: MatchReason;
   createdAt: string;
+}
+
+export interface Trade {
+  id: string;
+  purchaseRequestId: string;
+  bookId: string;
+  buyerId: string;
+  sellerId: string;
+  price: number;
+  status: TradeStatus;
+  cancelledBy?: 'buyer' | 'seller' | null;
+  role?: 'buyer' | 'seller';
+  book?: Book;
+  purchaseRequest?: PurchaseRequest;
+  message?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type ReviewType = 'positive' | 'neutral' | 'negative';
@@ -105,4 +147,18 @@ export const categoryMap: Record<SubjectCategory, string> = {
   business: '经管',
   arts: '艺术',
   other: '其他',
+};
+
+export const tradeStatusMap: Record<TradeStatus, string> = {
+  pending: '待交易',
+  completed: '已完成',
+  cancelled: '买家已取消',
+  rejected: '卖家已拒绝',
+};
+
+export const tradeStatusTagType: Record<TradeStatus, 'primary' | 'success' | 'default' | 'danger'> = {
+  pending: 'primary',
+  completed: 'success',
+  cancelled: 'default',
+  rejected: 'danger',
 };

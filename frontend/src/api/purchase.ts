@@ -10,8 +10,10 @@ export const createPurchaseRequest = (data: {
   description?: string;
   category: SubjectCategory;
   campus: string;
+  courseCode: string;
+  edition: string;
 }) => {
-  return request.post('/purchase-requests', data);
+  return request.post<{ request: PurchaseRequest }>('/purchase-requests', data);
 };
 
 export const getPurchaseRequests = (params: {
@@ -27,6 +29,17 @@ export const getMyPurchaseRequests = () => {
   return request.get<PurchaseRequest[]>('/my/purchase-requests');
 };
 
+export const getPurchaseRequestById = (id: string) => {
+  return request.get<PurchaseRequest>(`/purchase-requests/${id}`);
+};
+
 export const closePurchaseRequest = (id: string) => {
   return request.put(`/purchase-requests/${id}/close`);
+};
+
+/** 买家在求购单详情中选定一本书 -> 预约并生成交易记录 */
+export const selectBookForRequest = (requestId: string, bookId: string) => {
+  return request.post<{ alreadySelected: boolean; trade: any }>(`/purchase-requests/${requestId}/select`, {
+    bookId,
+  });
 };

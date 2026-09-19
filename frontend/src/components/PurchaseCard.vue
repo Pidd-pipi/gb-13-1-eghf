@@ -1,5 +1,5 @@
 <template>
-  <div class="purchase-card">
+  <div class="purchase-card" @click="$emit('click')">
     <div class="purchase-header">
       <div class="purchase-title">{{ request.bookTitle }}</div>
       <van-tag v-if="request.status === 'active'" type="primary">求购中</van-tag>
@@ -8,11 +8,13 @@
     <div class="purchase-meta" v-if="request.author">
       <span>作者：{{ request.author }}</span>
     </div>
-    <div class="purchase-meta" v-if="request.expectedPrice">
-      <span class="price">期望价格：¥{{ request.expectedPrice }}</span>
+    <div class="purchase-tags">
+      <van-tag plain type="primary">课程 {{ request.courseCode }}</van-tag>
+      <van-tag plain type="primary">{{ request.edition }}</van-tag>
+      <van-tag v-if="request.expectedPrice" plain type="danger">期望 ¥{{ request.expectedPrice }}</van-tag>
     </div>
     <div class="purchase-meta" v-if="request.conditions?.length">
-      <span>新旧要求：{{ request.conditions.join('、') }}</span>
+      <span>新旧要求：{{ request.conditions.map((c) => conditionMap[c as BookCondition]).join('、') }}</span>
     </div>
     <div class="purchase-footer">
       <span>{{ categoryMap[request.category] }} · {{ request.campus }}</span>
@@ -21,15 +23,24 @@
         <span>{{ request.requester.name || request.requester.department || '匿名' }}</span>
       </div>
     </div>
+    <div class="candidate-row" v-if="request.status === 'active'">
+      <van-icon name="apps-o" size="13" />
+      <span :class="{ zero: request.candidateCount === 0 }">
+        剩余同版候选 {{ request.candidateCount ?? 0 }} 本
+      </span>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { PurchaseRequest } from '@/types';
-import { categoryMap } from '@/types';
+import type { PurchaseRequest, BookCondition } from '@/types';
+import { categoryMap, conditionMap } from '@/types';
 
 defineProps<{
   request: PurchaseRequest;
+}>();
+defineEmits<{
+  click: [];
 }>();
 </script>
 
@@ -57,8 +68,11 @@ defineProps<{
   color: #666;
   margin-top: 8px;
 }
-.purchase-meta .price {
-  color: #ff4d4f;
+.purchase-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
 }
 .purchase-footer {
   display: flex;
@@ -74,5 +88,17 @@ defineProps<{
   display: flex;
   align-items: center;
   gap: 4px;
+}
+.candidate-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #1989fa;
+}
+.candidate-row.zero,
+.candidate-row .zero {
+  color: #999;
 }
 </style>

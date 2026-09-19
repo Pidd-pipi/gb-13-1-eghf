@@ -14,10 +14,20 @@
           <span class="condition-tag">{{ conditionMap[book.condition] }}</span>
           <span class="category-tag">{{ categoryMap[book.category] }}</span>
         </div>
+        <div class="edition-tags">
+          <van-tag plain type="primary">{{ book.courseCode }}</van-tag>
+          <van-tag plain type="primary">{{ book.edition }}</van-tag>
+        </div>
       </div>
-      <div class="price-row">
-        <span class="book-price">¥{{ book.price }}</span>
-        <span class="book-original-price">¥{{ book.originalPrice }}</span>
+      <div>
+        <div class="price-row">
+          <span class="book-price">¥{{ book.price }}</span>
+          <span class="book-original-price">¥{{ book.originalPrice }}</span>
+        </div>
+        <div v-if="typeof book.matchedRequestCount === 'number'" class="request-count">
+          <van-icon name="notes-o" size="12" />
+          {{ book.matchedRequestCount }} 条同学版求购
+        </div>
       </div>
       <div v-if="book.seller" class="seller-info">
         <van-icon name="user-o" size="12" />
@@ -87,8 +97,22 @@ defineEmits<{
   background: #f6ffed;
   color: #52c41a;
 }
+.edition-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
 .price-row {
   margin-top: 8px;
+}
+.request-count {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #1989fa;
 }
 .book-price {
   font-size: 18px;

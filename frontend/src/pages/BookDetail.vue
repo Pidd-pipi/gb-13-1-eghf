@@ -27,9 +27,32 @@
           <span class="detail-meta-item">分类：{{ categoryMap[book.category] }}</span>
           <span class="detail-meta-item">交易：{{ tradeMethodMap[book.tradeMethod] }}</span>
           <span class="detail-meta-item">校区：{{ book.campus }}</span>
+          <span class="detail-meta-item highlight">课程代码：{{ book.courseCode }}</span>
+          <span class="detail-meta-item highlight">版次：{{ book.edition }}</span>
           <span v-if="book.isbn" class="detail-meta-item">ISBN：{{ book.isbn }}</span>
         </div>
-        
+
+        <!-- 匹配原因（从求购单跳转进入时） -->
+        <div v-if="matchReason" class="match-box" :class="{ ok: matchReason.matched }">
+          <van-icon
+            :name="matchReason.matched ? 'passed' : 'warning-o'"
+            :color="matchReason.matched ? '#07c160' : '#ee0a24'"
+          />
+          <div>
+            <div class="match-title">{{ matchReason.matched ? '这本书匹配你的求购' : '这本书不匹配你的求购' }}</div>
+            <div class="match-summary">{{ matchReason.summary }}</div>
+            <div class="match-checks">
+              <span :class="{ on: matchReason.campus }">校区 {{ matchReason.campus ? '✓' : '✗' }}</span>
+              <span :class="{ on: matchReason.courseCode }">课程代码 {{ matchReason.courseCode ? '✓' : '✗' }}</span>
+              <span :class="{ on: matchReason.edition }">版次 {{ matchReason.edition ? '✓' : '✗' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="typeof book.matchedRequestCount === 'number'" class="request-hint">
+          当前有 {{ book.matchedRequestCount }} 条同校区 / 同课程代码 / 同版次的活跃求购
+        </div>
+
         <div class="detail-desc" v-if="book.description">
           <h4>描述</h4>
           <p>{{ book.description }}</p>
@@ -63,12 +86,29 @@
           {{ isFavorite ? '已收藏' : '收藏' }}
         </van-button>
         <van-button
+          v-if="relatedTradeId"
           type="primary"
           block
-          :disabled="book.status !== 'available' || isOwner"
+          @click="router.push(`/trade/${relatedTradeId}`)"
+        >
+          查看相关交易
+        </van-button>
+        <van-button
+          v-else-if="isOwner"
+          type="default"
+          block
+          disabled
+        >
+          这是我发布的
+        </van-button>
+        <van-button
+          v-else
+          type="primary"
+          block
+          :disabled="book.status !== 'available'"
           @click="contactSeller"
         >
-          {{ isOwner ? '这是我发布的' : '联系卖家' }}
+          {{ book.status === 'reserved' ? '已被预约' : book.status === 'sold' ? '已售出' : '联系卖家' }}
         </van-button>
       </div>
     </div>
@@ -82,6 +122,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { showToast, showDialog } from 'vant';
 import { getBookById, toggleFavorite as apiToggleFavorite } from '@/api/book';
+import { getTradesByBook } from '@/api/trade';
 import { useAuthStore } from '@/store/auth';
 import type { Book } from '@/types';
 import { conditionMap, categoryMap, tradeMethodMap } from '@/types';
@@ -93,15 +134,34 @@ const authStore = useAuthStore();
 const loading = ref(true);
 const book = ref<Book | null>(null);
 const isFavorite = ref(false);
+const relatedTradeId = ref<string | null>(null);
+
+const requestId = computed(() => (route.query.requestId as string) || undefined);
+const matchReason = computed(() => book.value?.matchReason);
 
 const isOwner = computed(() => {
   return book.value?.sellerId === authStore.user?.id;
 });
 
+const fetchRelatedTrade = async () => {
+  relatedTradeId.value = null;
+  if (!authStore.isAuthenticated) return;
+  try {
+    // 优先展示进行中的交易，其次最近一笔（已完成/已取消/已拒绝）
+    const pending = await getTradesByBook(route.params.id as string);
+    const list = pending.trades || [];
+    const pendingTrade = list.find((t) => t.status === 'pending');
+    relatedTradeId.value = pendingTrade?.id ?? list[0]?.id ?? null;
+  } catch {
+    relatedTradeId.value = null;
+  }
+};
+
 const fetchBook = async () => {
   loading.value = true;
   try {
-    book.value = await getBookById(route.params.id as string);
+    book.value = await getBookById(route.params.id as string, requestId.value);
+    await fetchRelatedTrade();
   } finally {
     loading.value = false;
   }
@@ -185,6 +245,48 @@ onMounted(fetchBook);
   background: #f7f8fa;
   padding: 4px 8px;
   border-radius: 4px;
+}
+.detail-meta-item.highlight {
+  background: #eaf3ff;
+  color: #1989fa;
+  font-weight: 500;
+}
+.match-box {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff1f0;
+}
+.match-box.ok {
+  background: #f0fff4;
+}
+.match-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+.match-summary {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+.match-checks {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #ee0a24;
+}
+.match-checks .on {
+  color: #07c160;
+}
+.request-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #1989fa;
 }
 .detail-desc {
   margin-top: 16px;

@@ -8,15 +8,27 @@ class RedisService {
     this.client = createClient({
       url: `redis://${config.redis.host}:${config.redis.port}`,
       password: config.redis.password,
+      // 连接失败时不无限重试，避免 connect() 的 Promise 永不结算而阻塞服务启动
+      socket: {
+        connectTimeout: 2000,
+        reconnectStrategy: (retries) => (retries > 2 ? new Error('Redis 不可用，停止重连') : 200),
+      },
     });
 
     this.client.on('error', (err) => console.error('Redis Client Error', err));
-    
+
     try {
-      await this.client.connect();
+      // 兜底超时：无论重试策略如何，最多等待 3 秒
+      await Promise.race([
+        this.client.connect(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Redis 连接超时')), 3000),
+        ),
+      ]);
       console.log('Redis connected successfully');
     } catch (err) {
       console.error('Failed to connect to Redis:', err);
+      throw err;
     }
   }
 

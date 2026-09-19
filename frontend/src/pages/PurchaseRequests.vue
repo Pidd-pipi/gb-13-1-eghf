@@ -17,6 +17,7 @@
         v-for="item in requests"
         :key="item.id"
         :request="item"
+        @click="goDetail(item.id)"
       />
       <van-empty v-else description="暂无求购信息" />
     </div>
@@ -27,10 +28,12 @@
 import { ref, reactive, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { getPurchaseRequests } from '@/api/purchase';
+import { useAuthStore } from '@/store/auth';
 import PurchaseCard from '@/components/PurchaseCard.vue';
 import type { PurchaseRequest, SubjectCategory } from '@/types';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const loading = ref(false);
 const requests = ref<PurchaseRequest[]>([]);
 
@@ -63,6 +66,14 @@ const fetchRequests = async () => {
 
 const goPublish = () => {
   router.push('/publish-request');
+};
+
+const goDetail = (id: string) => {
+  if (!authStore.isAuthenticated) {
+    router.push('/login');
+    return;
+  }
+  router.push(`/purchase-requests/${id}`);
 };
 
 watch(() => filters.category, fetchRequests);

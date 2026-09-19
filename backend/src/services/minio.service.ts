@@ -18,8 +18,14 @@ class MinioService {
   }
 
   async ensureBucket(): Promise<void> {
-    const exists = await this.client.bucketExists(this.bucket);
-    if (!exists) {
+    // 连接 MinIO 时增加超时，避免 MinIO 不可用时阻塞服务启动
+    const check = await Promise.race([
+      this.client.bucketExists(this.bucket).then((exists) => ({ exists })),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('MinIO 连接超时')), 3000),
+      ),
+    ]);
+    if (!check.exists) {
       await this.client.makeBucket(this.bucket, 'us-east-1');
       const policy = {
         Version: '2012-10-17',

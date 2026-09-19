@@ -50,16 +50,27 @@ npm run dev
 - 好评率统计与风险提示
 
 ### 书籍交易
-- 发布闲置书籍（书名、作者、ISBN、价格、新旧程度、图片等）
+- 发布闲置书籍（书名、作者、ISBN、**课程代码、版次**、价格、新旧程度、图片等）
 - 按书名/作者/ISBN搜索，支持全文索引
 - 按学科分类（理工、文史、经管、艺术等）筛选
 - 按价格区间、新旧程度筛选
 - 按价格、发布时间排序
 - 书籍状态管理（可购买/已预约/已售出）
 
+### 教材同版匹配与交易闭环
+- 发布书籍与求购单时都需填写**课程代码**与**版次**
+- 求购单仅匹配**同校区、同课程代码、同版次且可购买**的书
+- 求购列表与书籍列表实时显示**剩余候选数**（求购单候选书数 / 书籍对应求购数）
+- 求购单详情列出候选书籍，并逐条展示**匹配原因**（校区/课程代码/版次命中情况）
+- 买家选定书籍后书籍自动**预约**并生成**交易记录**（交易价格快照）
+- **并发安全**：重复选择幂等返回；并发抢同一本书只有一笔成功（条件更新 + 数据库唯一索引双重保障）
+- 卖家**拒绝**或买家**取消**后书籍自动释放为可购买，其他求购单可重新匹配
+- 交易完成后书籍标记为已售出；刷新页面后状态始终一致
+
 ### 求购系统
-- 发布求购需求
-- 按学科分类浏览
+- 发布求购需求（书名、课程代码、版次、期望价、新旧要求等）
+- 按学科分类浏览，显示同版剩余候选数
+- 求购单详情查看可购买的同版书籍并一键预约
 - 卖家主动联系买家
 
 ### 消息系统
@@ -104,11 +115,13 @@ npm run dev
 │   ├── src/
 │   │   ├── config/             # 配置文件
 │   │   ├── controllers/        # 控制器
-│   │   ├── entities/           # 数据实体
+│   │   ├── entities/           # 数据实体（User/Book/PurchaseRequest/Trade 等）
 │   │   ├── middlewares/        # 中间件
 │   │   ├── routes/             # 路由
-│   │   ├── services/           # 服务层
+│   │   ├── services/           # 服务层（教材匹配、交易并发控制、Redis、MinIO）
 │   │   └── index.ts            # 入口文件
+│   ├── seed-test.ts            # 集成测试种子数据脚本
+│   ├── integration-test.sh     # 教材同版匹配闭环端到端测试
 │   ├── Dockerfile
 │   ├── package.json
 │   └── tsconfig.json
@@ -198,6 +211,44 @@ docker compose down -v
 # 重新构建镜像
 docker compose build --no-cache
 docker compose up -d
+```
+
+## 教材同版匹配关键接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/books` | 发布书籍（必填 `courseCode`、`edition`） |
+| POST | `/api/purchase-requests` | 发布求购（必填 `courseCode`、`edition`） |
+| GET | `/api/purchase-requests` | 求购列表，每条带 `candidateCount` 剩余候选数 |
+| GET | `/api/purchase-requests/:id` | 求购详情：候选书 `candidateBooks`、进行中交易 `pendingTrade` |
+| POST | `/api/purchase-requests/:id/select` | 买家选定一本书 → 预约并生成交易（body: `bookId`） |
+| GET | `/api/books/:id?requestId=` | 书籍详情，附 `matchReason` 匹配原因与 `matchedRequestCount` |
+| GET | `/api/my/trades?role=buyer|seller` | 我的交易列表 |
+| POST | `/api/trades/:id/reject` | 卖家拒绝，释放书籍 |
+| POST | `/api/trades/:id/cancel` | 买家取消，释放书籍 |
+| POST | `/api/trades/:id/complete` | 完成交易，书籍置为已售出 |
+
+### 并发一致性如何保证
+
+- 选定书籍在单个数据库事务内执行条件更新 `UPDATE books SET status='reserved' WHERE id=? AND status='available'`，InnoDB 行锁保证并发下仅一个请求影响 1 行。
+- `trades` 表上有一个仅对进行中(pending)交易生效的虚拟生成列唯一索引 `pendingBookId`，作为数据库级兜底，确保同一本书任意时刻至多一笔进行中交易。
+- 交易结束（拒绝/取消）后该唯一值变为 NULL（MySQL 唯一索引允许多个 NULL），书籍恢复 `available`，可被其他求购单重新匹配；历史交易记录保留可追溯。
+
+### 端到端集成测试
+
+后端内置了一个针对“教材同版匹配闭环”的端到端脚本（候选数、匹配原因、硬性匹配校验、并发抢占、幂等、拒绝/取消释放、重新匹配、完成售出、刷新一致性等 90 项断言）：
+
+```bash
+# 1) 准备一个可连通的 MySQL，并配置好后端环境变量（MYSQL_HOST 等）
+# 2) 初始化种子数据（买家/卖家/同版与不同版书籍与求购单）
+cd backend
+npx ts-node --transpile-only seed-test.ts
+
+# 3) 启动后端
+npm run dev
+
+# 4) 另开终端运行测试
+./integration-test.sh
 ```
 
 ## 常见问题

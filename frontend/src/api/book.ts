@@ -27,8 +27,10 @@ export const getBooks = (params: BookListParams) => {
   return request.get<BookListResponse>('/books', { params });
 };
 
-export const getBookById = (id: string) => {
-  return request.get<Book>(`/books/${id}`);
+export const getBookById = (id: string, requestId?: string) => {
+  return request.get<Book>(`/books/${id}`, {
+    params: requestId ? { requestId } : undefined,
+  });
 };
 
 export const createBook = (data: {
@@ -40,6 +42,8 @@ export const createBook = (data: {
   condition: BookCondition;
   tradeMethod: TradeMethod;
   campus: string;
+  courseCode: string;
+  edition: string;
   category: SubjectCategory;
   description?: string;
   images: File[];

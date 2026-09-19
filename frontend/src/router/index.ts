@@ -40,9 +40,33 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/publish-request',
+    name: 'PublishRequest',
+    component: () => import('@/pages/PublishRequest.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/purchase-requests',
     name: 'PurchaseRequests',
     component: () => import('@/pages/PurchaseRequests.vue'),
+  },
+  {
+    path: '/purchase-requests/:id',
+    name: 'PurchaseRequestDetail',
+    component: () => import('@/pages/PurchaseRequestDetail.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/trade/:id',
+    name: 'TradeDetail',
+    component: () => import('@/pages/TradeDetail.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/my/trades',
+    name: 'MyTrades',
+    component: () => import('@/pages/MyTrades.vue'),
+    meta: { requiresAuth: true },
   },
   {
     path: '/messages',
@@ -66,6 +90,12 @@ const routes = [
     path: '/my-books',
     name: 'MyBooks',
     component: () => import('@/pages/MyBooks.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/my/purchase-requests',
+    name: 'MyPurchaseRequests',
+    component: () => import('@/pages/MyPurchaseRequests.vue'),
     meta: { requiresAuth: true },
   },
   {

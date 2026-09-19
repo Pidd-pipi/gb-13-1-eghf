@@ -19,7 +19,22 @@
           :rules="[{ required: true, message: '请输入作者' }]"
         />
         <van-field v-model="form.isbn" name="isbn" label="ISBN" placeholder="选填" />
-        
+
+        <van-field
+          v-model="form.courseCode"
+          name="courseCode"
+          label="课程代码"
+          placeholder="如 CS101，用于教材同版匹配"
+          :rules="[{ required: true, message: '请填写课程代码' }]"
+        />
+        <van-field
+          v-model="form.edition"
+          name="edition"
+          label="版次"
+          placeholder="如 第2版 / 2023版"
+          :rules="[{ required: true, message: '请填写版次' }]"
+        />
+
         <van-field name="images" label="图片" required>
           <template #input>
             <van-uploader
@@ -132,6 +147,8 @@ const form = reactive({
   title: '',
   author: '',
   isbn: '',
+  courseCode: '',
+  edition: '',
   originalPrice: 0,
   price: 0,
   condition: '',
@@ -175,6 +192,8 @@ const onSubmit = async () => {
       title: form.title,
       author: form.author,
       isbn: form.isbn || undefined,
+      courseCode: form.courseCode,
+      edition: form.edition,
       originalPrice: form.originalPrice,
       price: form.price,
       condition: form.condition as any,

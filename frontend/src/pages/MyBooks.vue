@@ -9,6 +9,10 @@
         <van-image :src="book.images[0]" width="80" height="80" fit="cover" />
         <div class="book-info">
           <div class="book-title">{{ book.title }}</div>
+          <div class="book-edition">
+            <van-tag plain type="primary">{{ book.courseCode }}</van-tag>
+            <van-tag plain type="primary">{{ book.edition }}</van-tag>
+          </div>
           <div class="book-price">¥{{ book.price }}</div>
           <div class="book-status" :class="`status-${book.status}`">{{ statusMap[book.status] }}</div>
         </div>
@@ -47,15 +51,14 @@ const fetchBooks = async () => {
 
 const getStatusActions = (book: Book) => {
   const actions: any[] = [{ text: '查看详情', value: 'view' }];
-  
+
   if (book.status === 'available') {
-    actions.push({ text: '标记为已预约', value: 'reserved' });
     actions.push({ text: '标记为已售出', value: 'sold' });
   } else if (book.status === 'reserved') {
-    actions.push({ text: '恢复可购买', value: 'available' });
-    actions.push({ text: '标记为已售出', value: 'sold' });
+    // 已预约的书由交易流程驱动状态（拒绝/完成），引导卖家去交易列表处理
+    actions.push({ text: '查看相关交易', value: 'trades' });
   }
-  
+
   actions.push({ text: '删除', value: 'delete' });
   return actions;
 };
@@ -63,6 +66,10 @@ const getStatusActions = (book: Book) => {
 const handleAction = async (book: Book, value: string) => {
   if (value === 'view') {
     router.push(`/book/${book.id}`);
+    return;
+  }
+  if (value === 'trades') {
+    router.push('/my/trades?role=seller');
     return;
   }
   
@@ -116,6 +123,11 @@ onMounted(fetchBooks);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.book-edition {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
 }
 .book-price {
   font-size: 16px;
