@@ -1,12 +1,13 @@
 import { Request, Response } from 'express';
-import { In, ILike, FindOperator, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
-import { AppDataSource } from '../config/database';
+import { ILike, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { ds } from '../services/db';
 import { Book, BookStatus, SubjectCategory, BookCondition } from '../entities/Book';
 import { User } from '../entities/User';
 import { Favorite } from '../entities/Favorite';
 import { BrowsingHistory } from '../entities/BrowsingHistory';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { minioService } from '../services/minio.service';
+import { matchingService } from '../services/matching.service';
 
 export const createBook = async (req: AuthenticatedRequest, res: Response) => {
   const {
@@ -18,9 +19,18 @@ export const createBook = async (req: AuthenticatedRequest, res: Response) => {
     condition,
     tradeMethod,
     campus,
+    courseCode,
+    edition,
     category,
     description,
   } = req.body;
+
+  if (!courseCode || !String(courseCode).trim()) {
+    return res.status(400).json({ message: '请填写课程代码（如 CS101）' });
+  }
+  if (!edition || !String(edition).trim()) {
+    return res.status(400).json({ message: '请填写版次（如 第3版）' });
+  }
 
   const files = req.files as Express.Multer.File[];
   if (!files || files.length === 0) {
@@ -38,7 +48,7 @@ export const createBook = async (req: AuthenticatedRequest, res: Response) => {
       imageUrls.push(url);
     }
 
-    const bookRepository = AppDataSource.getRepository(Book);
+    const bookRepository = ds().getRepository(Book);
     const book = bookRepository.create({
       title,
       author,
@@ -49,6 +59,8 @@ export const createBook = async (req: AuthenticatedRequest, res: Response) => {
       images: imageUrls,
       tradeMethod,
       campus,
+      courseCode: String(courseCode).trim().toUpperCase(),
+      edition: String(edition).trim(),
       category,
       description,
       sellerId: req.userId!,
@@ -67,6 +79,9 @@ export const getBooks = async (req: Request, res: Response) => {
   const {
     keyword,
     category,
+    campus,
+    courseCode,
+    edition,
     minPrice,
     maxPrice,
     condition,
@@ -76,7 +91,7 @@ export const getBooks = async (req: Request, res: Response) => {
     limit = 20,
   } = req.query;
 
-  const bookRepository = AppDataSource.getRepository(Book);
+  const bookRepository = ds().getRepository(Book);
   const where: any = { status: 'available' };
 
   if (keyword) {
@@ -84,6 +99,16 @@ export const getBooks = async (req: Request, res: Response) => {
   }
   if (category) {
     where.category = category as SubjectCategory;
+  }
+  if (campus) {
+    where.campus = campus as string;
+  }
+  // 课程代码统一大写后精确匹配
+  if (courseCode) {
+    where.courseCode = String(courseCode).trim().toUpperCase();
+  }
+  if (edition) {
+    where.edition = String(edition).trim();
   }
   if (condition) {
     where.condition = condition as BookCondition;
@@ -98,10 +123,14 @@ export const getBooks = async (req: Request, res: Response) => {
     }
   }
 
+  const allowedSort = ['createdAt', 'price'];
+  const sortField = allowedSort.includes(sort as string) ? (sort as string) : 'createdAt';
+  const sortOrder = order === 'ASC' ? 'ASC' : 'DESC';
+
   const [books, total] = await bookRepository.findAndCount({
     where,
     relations: ['seller'],
-    order: { [sort as string]: order as 'ASC' | 'DESC' },
+    order: { [sortField]: sortOrder as 'ASC' | 'DESC' },
     skip: (parseInt(page as string) - 1) * parseInt(limit as string),
     take: parseInt(limit as string),
     select: {
@@ -115,8 +144,15 @@ export const getBooks = async (req: Request, res: Response) => {
     },
   });
 
+  // 每本书还能匹配多少张求购单（卖家视角的剩余候选数）
+  const matchCounts = await matchingService.countMatchingRequestsBatch(books);
+  const booksWithCount = books.map((book) => ({
+    ...book,
+    matchingRequestCount: matchCounts[book.id] ?? 0,
+  }));
+
   res.json({
-    books,
+    books: booksWithCount,
     pagination: {
       page: parseInt(page as string),
       limit: parseInt(limit as string),
@@ -130,7 +166,7 @@ export const getBookById = async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = (req as AuthenticatedRequest).userId;
 
-  const bookRepository = AppDataSource.getRepository(Book);
+  const bookRepository = ds().getRepository(Book);
   const book = await bookRepository.findOne({
     where: { id },
     relations: ['seller'],
@@ -152,7 +188,7 @@ export const getBookById = async (req: Request, res: Response) => {
   }
 
   if (userId && userId !== book.sellerId) {
-    const historyRepository = AppDataSource.getRepository(BrowsingHistory);
+    const historyRepository = ds().getRepository(BrowsingHistory);
     const history = historyRepository.create({
       userId,
       bookId: book.id,
@@ -160,14 +196,33 @@ export const getBookById = async (req: Request, res: Response) => {
     await historyRepository.save(history);
   }
 
-  res.json(book);
+  // 详情页展示匹配信息：剩余匹配求购数 + 每条求购单与本书的匹配原因
+  const matchingRequests = await matchingService.findMatchingRequestsForBook(book);
+  const matchDetails = matchingRequests.map((pr) => ({
+    id: pr.id,
+    bookTitle: pr.bookTitle,
+    expectedPrice: pr.expectedPrice,
+    conditions: pr.conditions,
+    requesterName: pr.requester?.name || pr.requester?.department || '匿名同学',
+    reasons: matchingService.buildMatchReasons(book, pr),
+  }));
+
+  res.json({
+    ...book,
+    matchingRequestCount: matchDetails.length,
+    matchingRequests: matchDetails,
+  });
 };
 
 export const updateBookStatus = async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const { status } = req.body;
 
-  const bookRepository = AppDataSource.getRepository(Book);
+  if (!['available', 'reserved', 'sold'].includes(status)) {
+    return res.status(400).json({ message: '非法的书籍状态' });
+  }
+
+  const bookRepository = ds().getRepository(Book);
   const book = await bookRepository.findOne({ where: { id } });
 
   if (!book) {
@@ -176,6 +231,14 @@ export const updateBookStatus = async (req: AuthenticatedRequest, res: Response)
 
   if (book.sellerId !== req.userId) {
     return res.status(403).json({ message: '无权限操作' });
+  }
+
+  // 已预约的书处于交易闭环中，不能手动改状态，防止绕过匹配/交易流程
+  if (book.status === 'reserved' && status !== 'reserved') {
+    return res.status(409).json({ message: '书籍已被预约，请在交易记录中接受、拒绝或等待买家取消' });
+  }
+  if (book.status === 'sold') {
+    return res.status(409).json({ message: '已售出的书籍状态不可变更' });
   }
 
   book.status = status;
@@ -187,7 +250,7 @@ export const updateBookStatus = async (req: AuthenticatedRequest, res: Response)
 export const deleteBook = async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
 
-  const bookRepository = AppDataSource.getRepository(Book);
+  const bookRepository = ds().getRepository(Book);
   const book = await bookRepository.findOne({ where: { id } });
 
   if (!book) {
@@ -198,25 +261,39 @@ export const deleteBook = async (req: AuthenticatedRequest, res: Response) => {
     return res.status(403).json({ message: '无权限操作' });
   }
 
+  if (book.status === 'reserved') {
+    return res.status(409).json({ message: '书籍已被预约，无法删除' });
+  }
+  if (book.status === 'sold') {
+    return res.status(409).json({ message: '书籍已售出，无法删除' });
+  }
+
   await bookRepository.delete({ id });
   res.json({ message: '删除成功' });
 };
 
 export const getMyBooks = async (req: AuthenticatedRequest, res: Response) => {
-  const bookRepository = AppDataSource.getRepository(Book);
+  const bookRepository = ds().getRepository(Book);
   const books = await bookRepository.find({
     where: { sellerId: req.userId },
     order: { createdAt: 'DESC' },
   });
 
-  res.json(books);
+  // 我发布的书同样展示剩余候选（匹配求购单）数量
+  const matchCounts = await matchingService.countMatchingRequestsBatch(books);
+  res.json(
+    books.map((book) => ({
+      ...book,
+      matchingRequestCount: matchCounts[book.id] ?? 0,
+    })),
+  );
 };
 
 export const getRecommendBooks = async (req: AuthenticatedRequest, res: Response) => {
-  const userRepository = AppDataSource.getRepository(User);
+  const userRepository = ds().getRepository(User);
   const user = await userRepository.findOne({ where: { id: req.userId } });
 
-  const bookRepository = AppDataSource.getRepository(Book);
+  const bookRepository = ds().getRepository(Book);
   let books: Book[];
 
   if (user?.department) {

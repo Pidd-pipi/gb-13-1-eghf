@@ -2,7 +2,8 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, In
 import { User } from './User';
 
 export type SubjectCategory = 'science' | 'humanities' | 'business' | 'arts' | 'other';
-export type RequestStatus = 'active' | 'closed';
+// active: 求购中可匹配；matched: 已选定书籍并预约（等待卖家处理）；closed: 买家主动关闭/已成交
+export type RequestStatus = 'active' | 'matched' | 'closed';
 
 @Entity('purchase_requests')
 export class PurchaseRequest {
@@ -27,14 +28,22 @@ export class PurchaseRequest {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ type: 'enum', enum: ['science', 'humanities', 'business', 'arts', 'other'] })
+  @Column({ type: 'varchar', length: 32 })
   @Index('idx_request_category')
   category: SubjectCategory;
 
   @Column()
   campus: string;
 
-  @Column({ type: 'enum', enum: ['active', 'closed'], default: 'active' })
+  // 教材同版匹配字段：课程代码 + 版次
+  @Column()
+  @Index('idx_request_course_code')
+  courseCode: string;
+
+  @Column()
+  edition: string;
+
+  @Column({ type: 'varchar', length: 32, default: 'active' })
   status: RequestStatus;
 
   @ManyToOne(() => User, user => user.purchaseRequests)

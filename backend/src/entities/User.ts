@@ -33,7 +33,7 @@ export class User {
   @Column({ nullable: true })
   avatarUrl: string;
 
-  @Column({ type: 'enum', enum: ['student', 'admin'], default: 'student' })
+  @Column({ type: 'varchar', length: 32, default: 'student' })
   role: UserRole;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })

@@ -3,7 +3,7 @@ import { body, validationResult } from 'express-validator';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import type { Secret, SignOptions } from 'jsonwebtoken';
-import { AppDataSource } from '../config/database';
+import { ds } from '../services/db';
 import { User } from '../entities/User';
 import { redisService } from '../services/redis.service';
 import { emailService } from '../services/email.service';
@@ -38,7 +38,7 @@ export const sendVerificationCode = async (req: Request, res: Response) => {
 
   const { email, studentId } = req.body;
 
-  const userRepository = AppDataSource.getRepository(User);
+  const userRepository = ds().getRepository(User);
   
   const existingUser = await userRepository.findOne({ where: [{ email }, { studentId }] });
   if (existingUser) {
@@ -70,7 +70,7 @@ export const register = async (req: Request, res: Response) => {
     return res.status(400).json({ message: '验证码错误或已过期' });
   }
 
-  const userRepository = AppDataSource.getRepository(User);
+  const userRepository = ds().getRepository(User);
 
   const existingUser = await userRepository.findOne({ where: [{ email }, { studentId }] });
   if (existingUser) {
@@ -114,7 +114,7 @@ export const login = async (req: Request, res: Response) => {
 
   const { email, password } = req.body;
 
-  const userRepository = AppDataSource.getRepository(User);
+  const userRepository = ds().getRepository(User);
   const user = await userRepository.findOne({ where: { email } });
 
   if (!user || !(await bcrypt.compare(password, user.password))) {

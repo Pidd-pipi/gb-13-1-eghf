@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { AppDataSource } from '../config/database';
+import { ds } from '../services/db';
 import { Favorite } from '../entities/Favorite';
 import { Book } from '../entities/Book';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
@@ -7,7 +7,7 @@ import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 export const toggleFavorite = async (req: AuthenticatedRequest, res: Response) => {
   const { bookId } = req.body;
 
-  const favoriteRepository = AppDataSource.getRepository(Favorite);
+  const favoriteRepository = ds().getRepository(Favorite);
   const existing = await favoriteRepository.findOne({
     where: { userId: req.userId, bookId },
   });
@@ -17,7 +17,7 @@ export const toggleFavorite = async (req: AuthenticatedRequest, res: Response) =
     return res.json({ message: '已取消收藏', isFavorite: false });
   }
 
-  const bookRepository = AppDataSource.getRepository(Book);
+  const bookRepository = ds().getRepository(Book);
   const book = await bookRepository.findOne({ where: { id: bookId } });
   if (!book) {
     return res.status(404).json({ message: '书籍不存在' });
@@ -33,7 +33,7 @@ export const toggleFavorite = async (req: AuthenticatedRequest, res: Response) =
 };
 
 export const getFavorites = async (req: AuthenticatedRequest, res: Response) => {
-  const favoriteRepository = AppDataSource.getRepository(Favorite);
+  const favoriteRepository = ds().getRepository(Favorite);
   const favorites = await favoriteRepository.find({
     where: { userId: req.userId },
     relations: ['book', 'book.seller'],
@@ -59,7 +59,7 @@ export const getFavorites = async (req: AuthenticatedRequest, res: Response) => 
 };
 
 export const getBrowsingHistory = async (req: AuthenticatedRequest, res: Response) => {
-  const historyRepository = AppDataSource.getRepository('BrowsingHistory');
+  const historyRepository = ds().getRepository('BrowsingHistory');
   const histories = await historyRepository
     .createQueryBuilder('history')
     .innerJoinAndMapOne('history.book', 'Book', 'book', 'history.bookId = book.id')

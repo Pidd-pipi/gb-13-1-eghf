@@ -23,8 +23,10 @@
     
     <van-cell-group inset>
       <van-cell title="我发布的" icon="shop-o" is-link @click="router.push('/my-books')" />
+      <van-cell title="我的求购" icon="notes-o" is-link @click="router.push('/my-purchase-requests')" />
+      <van-cell title="交易记录" icon="exchange" is-link @click="router.push('/transactions')" />
+      <van-cell title="求购广场" icon="search" is-link @click="router.push('/purchase-requests')" />
       <van-cell title="我的收藏" icon="star-o" is-link @click="router.push('/favorites')" />
-      <van-cell title="求购信息" icon="notes-o" is-link @click="router.push('/purchase-requests')" />
       <van-cell title="我的评价" icon="comment-o" is-link @click="showReviews" />
     </van-cell-group>
     

@@ -57,6 +57,7 @@
             v-for="item in purchaseRequests"
             :key="item.id"
             :request="item"
+            @click="goRequestDetail(item.id)"
           />
           <van-empty v-else description="暂无求购信息" />
         </div>
@@ -127,6 +128,14 @@ const fetchPurchaseRequests = async () => {
 
 const goDetail = (id: string) => {
   router.push(`/book/${id}`);
+};
+
+const goRequestDetail = (id: string) => {
+  if (!authStore.isAuthenticated) {
+    router.push('/login');
+    return;
+  }
+  router.push(`/purchase-request/${id}`);
 };
 
 const goProfile = () => {

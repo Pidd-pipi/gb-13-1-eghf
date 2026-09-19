@@ -1,26 +1,35 @@
 <template>
   <div class="page-container">
     <van-nav-bar title="我发布的" left-arrow @click-left="router.back" />
-    
-    <van-loading v-if="loading" class="loading-center" />
-    
-    <div v-else-if="books.length > 0" class="books-list">
-      <div v-for="book in books" :key="book.id" class="book-item">
-        <van-image :src="book.images[0]" width="80" height="80" fit="cover" />
-        <div class="book-info">
-          <div class="book-title">{{ book.title }}</div>
-          <div class="book-price">¥{{ book.price }}</div>
-          <div class="book-status" :class="`status-${book.status}`">{{ statusMap[book.status] }}</div>
+
+    <van-pull-refresh v-model="refreshing" @refresh="fetchBooks">
+      <van-loading v-if="loading && !refreshing" class="loading-center" />
+
+      <div v-else-if="books.length > 0" class="books-list">
+        <div v-for="book in books" :key="book.id" class="book-item" @click="router.push(`/book/${book.id}`)">
+          <van-image :src="book.images[0]" width="80" height="80" fit="cover" />
+          <div class="book-info">
+            <div class="book-title">{{ book.title }}</div>
+            <div class="book-meta">{{ book.campus }} · {{ book.courseCode }} · {{ book.edition }}</div>
+            <div class="book-price-row">
+              <span class="book-price">¥{{ book.price }}</span>
+              <span class="book-status" :class="`status-${book.status}`">{{ statusMap[book.status] }}</span>
+            </div>
+            <div class="match-count">
+              <van-icon name="notes-o" size="12" />
+              <span>{{ book.matchingRequestCount ?? 0 }} 张同版求购单可匹配</span>
+            </div>
+          </div>
+          <van-dropdown-menu class="book-actions" @click.stop>
+            <van-dropdown-item :options="getStatusActions(book)" @change="(val: any) => handleAction(book, val)" />
+          </van-dropdown-menu>
         </div>
-        <van-dropdown-menu class="book-actions">
-          <van-dropdown-item :options="getStatusActions(book)" @change="(val: any) => handleAction(book, val)" />
-        </van-dropdown-menu>
       </div>
-    </div>
-    
-    <van-empty v-else description="暂无发布的书籍">
-      <van-button type="primary" @click="router.push('/publish')">去发布</van-button>
-    </van-empty>
+
+      <van-empty v-else description="暂无发布的书籍">
+        <van-button type="primary" @click="router.push('/publish')">去发布</van-button>
+      </van-empty>
+    </van-pull-refresh>
   </div>
 </template>
 
@@ -34,6 +43,7 @@ import { statusMap } from '@/types';
 
 const router = useRouter();
 const loading = ref(true);
+const refreshing = ref(false);
 const books = ref<Book[]>([]);
 
 const fetchBooks = async () => {
@@ -42,21 +52,23 @@ const fetchBooks = async () => {
     books.value = await getMyBooks();
   } finally {
     loading.value = false;
+    refreshing.value = false;
   }
 };
 
 const getStatusActions = (book: Book) => {
   const actions: any[] = [{ text: '查看详情', value: 'view' }];
-  
+
   if (book.status === 'available') {
-    actions.push({ text: '标记为已预约', value: 'reserved' });
     actions.push({ text: '标记为已售出', value: 'sold' });
   } else if (book.status === 'reserved') {
-    actions.push({ text: '恢复可购买', value: 'available' });
-    actions.push({ text: '标记为已售出', value: 'sold' });
+    // 预约中的书只能走交易闭环（接受/拒绝），不能手动改状态或删除
+    actions.push({ text: '处理预约（接受/拒绝）', value: 'transactions' });
   }
-  
-  actions.push({ text: '删除', value: 'delete' });
+
+  if (book.status !== 'reserved' && book.status !== 'sold') {
+    actions.push({ text: '删除', value: 'delete' });
+  }
   return actions;
 };
 
@@ -65,7 +77,11 @@ const handleAction = async (book: Book, value: string) => {
     router.push(`/book/${book.id}`);
     return;
   }
-  
+  if (value === 'transactions') {
+    router.push('/transactions');
+    return;
+  }
+
   if (value === 'delete') {
     try {
       await showConfirmDialog({
@@ -78,7 +94,7 @@ const handleAction = async (book: Book, value: string) => {
     } catch {}
     return;
   }
-  
+
   try {
     await updateBookStatus(book.id, value as BookStatus);
     showToast('状态已更新');
@@ -109,6 +125,7 @@ onMounted(fetchBooks);
 .book-info {
   flex: 1;
   margin-left: 12px;
+  min-width: 0;
 }
 .book-title {
   font-size: 14px;
@@ -117,15 +134,24 @@ onMounted(fetchBooks);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.book-meta {
+  font-size: 11px;
+  color: #722ed1;
+  margin-top: 4px;
+}
+.book-price-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
 .book-price {
   font-size: 16px;
   font-weight: bold;
   color: #ff4d4f;
-  margin-top: 4px;
 }
 .book-status {
   font-size: 12px;
-  margin-top: 4px;
 }
 .status-available {
   color: #52c41a;
@@ -135,6 +161,14 @@ onMounted(fetchBooks);
 }
 .status-sold {
   color: #999;
+}
+.match-count {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #1989fa;
+  margin-top: 4px;
 }
 .book-actions {
   width: 80px;

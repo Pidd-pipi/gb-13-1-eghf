@@ -26,7 +26,7 @@ export class Review {
   @Column({ nullable: true })
   bookId: string;
 
-  @Column({ type: 'enum', enum: ['positive', 'neutral', 'negative'] })
+  @Column({ type: 'varchar', length: 32 })
   type: ReviewType;
 
   @Column({ type: 'text', nullable: true })

@@ -27,13 +27,30 @@ export interface Book {
   images: string[];
   tradeMethod: TradeMethod;
   campus: string;
+  /** 课程代码，如 CS101 */
+  courseCode: string;
+  /** 版次，如 第3版 */
+  edition: string;
   category: SubjectCategory;
   description?: string;
   status: BookStatus;
   sellerId: string;
   seller?: User;
+  /** 同校区+同课程代码+同版次的在求购单数（列表/我的发布） */
+  matchingRequestCount?: number;
+  /** 详情页：匹配到的求购单及匹配原因 */
+  matchingRequests?: BookMatchingRequest[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface BookMatchingRequest {
+  id: string;
+  bookTitle: string;
+  expectedPrice?: number | null;
+  conditions?: string[] | null;
+  requesterName: string;
+  reasons: string[];
 }
 
 export interface Message {
@@ -47,20 +64,61 @@ export interface Message {
   createdAt: string;
 }
 
+export type PurchaseRequestStatus = 'active' | 'matched' | 'closed';
+
 export interface PurchaseRequest {
   id: string;
   bookTitle: string;
-  author?: string;
-  isbn?: string;
-  expectedPrice?: number;
-  conditions?: string[];
-  description?: string;
+  author?: string | null;
+  isbn?: string | null;
+  expectedPrice?: number | null;
+  conditions?: string[] | null;
+  description?: string | null;
   category: SubjectCategory;
   campus: string;
-  status: 'active' | 'closed';
+  courseCode: string;
+  edition: string;
+  status: PurchaseRequestStatus;
   requesterId: string;
   requester?: User;
+  /** 剩余候选书数量（同校区+同课程代码+同版次且可购买） */
+  candidateCount?: number;
+  /** 详情页：候选书及匹配原因 */
+  candidates?: CandidateBook[];
   createdAt: string;
+}
+
+export interface CandidateBook {
+  id: string;
+  title: string;
+  author: string;
+  price: number;
+  condition: BookCondition;
+  images: string[];
+  campus: string;
+  courseCode: string;
+  edition: string;
+  sellerName: string;
+  reasons: string[];
+}
+
+export type TransactionStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'completed';
+
+export interface Transaction {
+  id: string;
+  bookId: string;
+  purchaseRequestId: string;
+  buyerId: string;
+  sellerId: string;
+  priceSnapshot: number;
+  matchReason?: string[] | null;
+  status: TransactionStatus;
+  book?: Book;
+  purchaseRequest?: PurchaseRequest;
+  buyer?: User;
+  seller?: User;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type ReviewType = 'positive' | 'neutral' | 'negative';
@@ -92,6 +150,20 @@ export const statusMap: Record<BookStatus, string> = {
   available: '可购买',
   reserved: '已预约',
   sold: '已售出',
+};
+
+export const purchaseStatusMap: Record<PurchaseRequestStatus, string> = {
+  active: '求购中',
+  matched: '已预约',
+  closed: '已关闭',
+};
+
+export const transactionStatusMap: Record<TransactionStatus, string> = {
+  pending: '待卖家确认',
+  accepted: '卖家已接受',
+  rejected: '卖家已拒绝',
+  cancelled: '买家已取消',
+  completed: '交易完成',
 };
 
 export const tradeMethodMap: Record<TradeMethod, string> = {

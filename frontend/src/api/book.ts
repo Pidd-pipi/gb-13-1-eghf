@@ -4,6 +4,9 @@ import type { Book, BookCondition, BookStatus, SubjectCategory, TradeMethod } fr
 export interface BookListParams {
   keyword?: string;
   category?: SubjectCategory;
+  campus?: string;
+  courseCode?: string;
+  edition?: string;
   minPrice?: number;
   maxPrice?: number;
   condition?: BookCondition;
@@ -40,6 +43,8 @@ export const createBook = (data: {
   condition: BookCondition;
   tradeMethod: TradeMethod;
   campus: string;
+  courseCode: string;
+  edition: string;
   category: SubjectCategory;
   description?: string;
   images: File[];

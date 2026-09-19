@@ -27,13 +27,48 @@
           <span class="detail-meta-item">分类：{{ categoryMap[book.category] }}</span>
           <span class="detail-meta-item">交易：{{ tradeMethodMap[book.tradeMethod] }}</span>
           <span class="detail-meta-item">校区：{{ book.campus }}</span>
+          <span class="detail-meta-item match">课程代码：{{ book.courseCode }}</span>
+          <span class="detail-meta-item match">版次：{{ book.edition }}</span>
           <span v-if="book.isbn" class="detail-meta-item">ISBN：{{ book.isbn }}</span>
         </div>
-        
+
         <div class="detail-desc" v-if="book.description">
           <h4>描述</h4>
           <p>{{ book.description }}</p>
         </div>
+      </div>
+
+      <!-- 同版匹配：哪些求购单会匹配到本书及匹配原因 -->
+      <div class="match-section">
+        <div class="match-section-head">
+          <span>同版求购匹配</span>
+          <van-tag type="primary" round>{{ book.matchingRequestCount ?? 0 }}</van-tag>
+        </div>
+        <van-empty
+          v-if="!book.matchingRequests || book.matchingRequests.length === 0"
+          image-size="80"
+          description="暂无需同校区/同课程代码/同版次教材的求购单"
+        />
+        <div v-else class="match-request-list">
+          <div v-for="mr in book.matchingRequests" :key="mr.id" class="match-request">
+            <div class="match-request-title">
+              <van-icon name="notes-o" />
+              {{ mr.bookTitle }}
+              <span class="match-request-user">（{{ mr.requesterName }} 求购）</span>
+            </div>
+            <div v-for="(reason, i) in mr.reasons" :key="i" class="match-reason-line">
+              <van-icon name="success" color="#07c160" size="12" />
+              <span>{{ reason }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 卖家视角：该书存在待处理预约时直达交易记录 -->
+      <div v-if="isOwner && book.status === 'reserved'" class="owner-reserved-tip" @click="router.push('/transactions')">
+        <van-icon name="clock-o" color="#fa8c16" />
+        该书已被买家预约，点击前往交易记录处理（接受/拒绝）
+        <van-icon name="arrow" />
       </div>
       
       <div class="detail-seller" v-if="book.seller">
@@ -63,12 +98,21 @@
           {{ isFavorite ? '已收藏' : '收藏' }}
         </van-button>
         <van-button
+          v-if="isOwner && book.status === 'reserved'"
+          type="warning"
+          block
+          @click="router.push('/transactions')"
+        >
+          处理预约
+        </van-button>
+        <van-button
+          v-else
           type="primary"
           block
           :disabled="book.status !== 'available' || isOwner"
           @click="contactSeller"
         >
-          {{ isOwner ? '这是我发布的' : '联系卖家' }}
+          {{ isOwner ? '这是我发布的' : book.status === 'sold' ? '已售出' : '我要求购同版教材' }}
         </van-button>
       </div>
     </div>
@@ -124,8 +168,19 @@ const contactSeller = () => {
     router.push('/login');
     return;
   }
-  if (!book.value?.seller) return;
-  router.push(`/chat/${book.value.seller.id}?bookId=${book.value.id}`);
+  if (!book.value) return;
+  // 买家通过发布同版求购单进入匹配闭环，发布后系统会自动匹配这本书
+  const b = book.value;
+  router.push({
+    path: '/publish-request',
+    query: {
+      bookTitle: b.title,
+      author: b.author,
+      campus: b.campus,
+      courseCode: b.courseCode,
+      edition: b.edition,
+    },
+  });
 };
 
 const viewReviews = () => {
@@ -250,6 +305,69 @@ onMounted(fetchBook);
 }
 .status-sold {
   background: #d9d9d9 !important;
+}
+.detail-meta-item.match {
+  background: #f4f0ff;
+  color: #722ed1;
+}
+.match-section {
+  background: white;
+  margin-top: 8px;
+  padding: 16px;
+}
+.match-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 500;
+}
+.match-request-list {
+  margin-top: 12px;
+}
+.match-request {
+  padding: 10px;
+  background: #faf8ff;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+.match-request-title {
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.match-request-user {
+  color: #999;
+  font-weight: 400;
+}
+.match-reason-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  font-size: 12px;
+  color: #555;
+  line-height: 1.7;
+  margin-top: 2px;
+}
+.match-reason-line .van-icon {
+  margin-top: 3px;
+}
+.owner-reserved-tip {
+  margin: 8px 12px 80px;
+  padding: 12px;
+  background: #fff7e8;
+  border: 1px solid #ffd591;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #d46b08;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.detail-page:not(:has(.owner-reserved-tip)) {
+  padding-bottom: 72px;
 }
 .bottom-actions {
   position: fixed;

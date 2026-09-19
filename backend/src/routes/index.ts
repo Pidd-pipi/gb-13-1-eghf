@@ -17,8 +17,17 @@ import {
   createPurchaseRequest,
   getPurchaseRequests,
   getMyPurchaseRequests,
+  getPurchaseRequestById,
   closePurchaseRequest,
 } from '../controllers/purchaseRequest.controller';
+import {
+  selectBook,
+  acceptTransaction,
+  rejectTransaction,
+  cancelTransaction,
+  completeTransaction,
+  getMyTransactions,
+} from '../controllers/transaction.controller';
 import { sendMessage, getConversations, getMessages, getUnreadCount } from '../controllers/message.controller';
 import { createReview, getUserReviews as getUserReviewsPublic } from '../controllers/review.controller';
 
@@ -49,7 +58,16 @@ router.get('/browsing-history', authMiddleware, getBrowsingHistory);
 router.get('/purchase-requests', getPurchaseRequests);
 router.post('/purchase-requests', authMiddleware, createPurchaseRequest);
 router.get('/my/purchase-requests', authMiddleware, getMyPurchaseRequests);
+router.get('/purchase-requests/:id', authMiddleware, getPurchaseRequestById);
 router.put('/purchase-requests/:id/close', authMiddleware, closePurchaseRequest);
+
+// 教材同版交易闭环：选定预约 / 卖家接受 / 卖家拒绝 / 买家取消 / 双方确认完成
+router.post('/transactions/select-book', authMiddleware, selectBook);
+router.get('/my/transactions', authMiddleware, getMyTransactions);
+router.put('/transactions/:id/accept', authMiddleware, acceptTransaction);
+router.put('/transactions/:id/reject', authMiddleware, rejectTransaction);
+router.put('/transactions/:id/cancel', authMiddleware, cancelTransaction);
+router.put('/transactions/:id/complete', authMiddleware, completeTransaction);
 
 router.post('/messages', authMiddleware, upload.array('images', 5), sendMessage);
 router.get('/messages/conversations', authMiddleware, getConversations);

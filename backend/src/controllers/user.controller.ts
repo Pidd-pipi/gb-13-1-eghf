@@ -1,12 +1,12 @@
 import { Response } from 'express';
-import { AppDataSource } from '../config/database';
+import { ds } from '../services/db';
 import { User } from '../entities/User';
 import { Review } from '../entities/Review';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { minioService } from '../services/minio.service';
 
 export const getCurrentUser = async (req: AuthenticatedRequest, res: Response) => {
-  const userRepository = AppDataSource.getRepository(User);
+  const userRepository = ds().getRepository(User);
   const user = await userRepository.findOne({
     where: { id: req.userId },
     select: ['id', 'email', 'studentId', 'name', 'department', 'contactInfo', 'avatarUrl', 'positiveRatingRate', 'totalReviews', 'createdAt'],
@@ -22,7 +22,7 @@ export const getCurrentUser = async (req: AuthenticatedRequest, res: Response) =
 export const updateProfile = async (req: AuthenticatedRequest, res: Response) => {
   const { name, department, contactInfo } = req.body;
 
-  const userRepository = AppDataSource.getRepository(User);
+  const userRepository = ds().getRepository(User);
   const user = await userRepository.findOne({ where: { id: req.userId } });
 
   if (!user) {
@@ -45,7 +45,7 @@ export const uploadAvatar = async (req: AuthenticatedRequest, res: Response) => 
   }
 
   try {
-    const userRepository = AppDataSource.getRepository(User);
+    const userRepository = ds().getRepository(User);
     const user = await userRepository.findOne({ where: { id: req.userId } });
 
     if (!user) {
@@ -65,7 +65,7 @@ export const uploadAvatar = async (req: AuthenticatedRequest, res: Response) => 
 };
 
 export const getUserReviews = async (req: AuthenticatedRequest, res: Response) => {
-  const reviewRepository = AppDataSource.getRepository(Review);
+  const reviewRepository = ds().getRepository(Review);
   const reviews = await reviewRepository.find({
     where: { revieweeId: req.userId },
     relations: ['reviewer'],

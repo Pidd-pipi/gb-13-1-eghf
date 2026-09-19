@@ -62,10 +62,10 @@
           </template>
         </van-field>
         
-        <van-field name="campus" label="校区" placeholder="请输入校区" :rules="[{ required: true, message: '请输入校区' }]">
+        <van-field name="campus" label="校区" placeholder="请选择校区" :rules="[{ required: true, message: '请选择校区' }]">
           <template #input>
             <van-picker
-              :columns="campuses"
+              :columns="campusOptions"
               @confirm="onCampusConfirm"
               v-model:show="showCampusPicker"
             >
@@ -74,6 +74,25 @@
             <div @click="showCampusPicker = true">{{ form.campus || '请选择' }}</div>
           </template>
         </van-field>
+
+        <van-field
+          v-model="form.courseCode"
+          name="courseCode"
+          label="课程代码"
+          placeholder="如 CS101"
+          :rules="[{ required: true, message: '请填写课程代码' }]"
+        />
+        <van-field
+          v-model="form.edition"
+          name="edition"
+          label="版次"
+          placeholder="如 第3版"
+          :rules="[{ required: true, message: '请填写版次' }]"
+        />
+        <div class="match-tip">
+          <van-icon name="info-o" />
+          仅同校区、同课程代码、同版次的求购单才会匹配到该书，请认真填写
+        </div>
         
         <van-field name="category" label="分类" :rules="[{ required: true, message: '请选择分类' }]">
           <template #input>
@@ -120,6 +139,7 @@ import { useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import { createBook } from '@/api/book';
 import type { UploaderFileListItem } from 'vant';
+import { campusOptions } from '@/constants';
 
 const router = useRouter();
 const activeTab = ref(2);
@@ -137,17 +157,11 @@ const form = reactive({
   condition: '',
   tradeMethod: '',
   campus: '',
+  courseCode: '',
+  edition: '',
   category: '',
   description: '',
 });
-
-const campuses = [
-  { text: '主校区', value: '主校区' },
-  { text: '东校区', value: '东校区' },
-  { text: '西校区', value: '西校区' },
-  { text: '南校区', value: '南校区' },
-  { text: '北校区', value: '北校区' },
-];
 
 const onCampusConfirm = ({ selectedOptions }: any) => {
   form.campus = selectedOptions[0]?.text || '';
@@ -180,6 +194,8 @@ const onSubmit = async () => {
       condition: form.condition as any,
       tradeMethod: form.tradeMethod as any,
       campus: form.campus,
+      courseCode: form.courseCode.trim().toUpperCase(),
+      edition: form.edition.trim(),
       category: form.category as any,
       description: form.description || undefined,
       images: files,
@@ -196,5 +212,18 @@ const onSubmit = async () => {
 <style scoped>
 .submit-actions {
   padding: 24px;
+}
+.match-tip {
+  margin: 8px 16px 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #ee0a24;
+  background: #fff7f8;
+  border-radius: 6px;
+  line-height: 1.6;
+}
+.match-tip .van-icon {
+  margin-right: 4px;
+  vertical-align: -1px;
 }
 </style>

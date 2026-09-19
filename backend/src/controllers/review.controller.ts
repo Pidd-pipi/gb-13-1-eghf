@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { AppDataSource } from '../config/database';
+import { ds } from '../services/db';
 import { Review, ReviewType } from '../entities/Review';
 import { User } from '../entities/User';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
@@ -11,7 +11,7 @@ export const createReview = async (req: AuthenticatedRequest, res: Response) => 
     return res.status(400).json({ message: '不能评价自己' });
   }
 
-  const reviewRepository = AppDataSource.getRepository(Review);
+  const reviewRepository = ds().getRepository(Review);
   const existing = await reviewRepository.findOne({
     where: { reviewerId: req.userId, revieweeId, bookId },
   });
@@ -30,7 +30,7 @@ export const createReview = async (req: AuthenticatedRequest, res: Response) => 
 
   await reviewRepository.save(review);
 
-  const userRepository = AppDataSource.getRepository(User);
+  const userRepository = ds().getRepository(User);
   const user = await userRepository.findOne({ where: { id: revieweeId } });
 
   if (user) {
@@ -48,7 +48,7 @@ export const createReview = async (req: AuthenticatedRequest, res: Response) => 
 export const getUserReviews = async (req: Request, res: Response) => {
   const { userId } = req.params;
 
-  const reviewRepository = AppDataSource.getRepository(Review);
+  const reviewRepository = ds().getRepository(Review);
   const reviews = await reviewRepository.find({
     where: { revieweeId: userId },
     relations: ['reviewer'],

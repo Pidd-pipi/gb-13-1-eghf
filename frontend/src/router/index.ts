@@ -74,6 +74,30 @@ const routes = [
     component: () => import('@/pages/Favorites.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/publish-request',
+    name: 'PublishRequest',
+    component: () => import('@/pages/PublishRequest.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/my-purchase-requests',
+    name: 'MyPurchaseRequests',
+    component: () => import('@/pages/MyPurchaseRequests.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/purchase-request/:id',
+    name: 'PurchaseRequestDetail',
+    component: () => import('@/pages/PurchaseRequestDetail.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/transactions',
+    name: 'Transactions',
+    component: () => import('@/pages/Transactions.vue'),
+    meta: { requiresAuth: true },
+  },
 ];
 
 const router = createRouter({

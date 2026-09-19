@@ -16,7 +16,12 @@
       <van-dropdown-item v-model="filters.condition" :options="conditionOptions" title="新旧程度" />
       <van-dropdown-item v-model="filters.sort" :options="sortOptions" title="排序" />
     </van-dropdown-menu>
-    
+
+    <div class="match-filter">
+      <van-field v-model="filters.courseCode" label="课程代码" placeholder="如 CS101" clearable />
+      <van-field v-model="filters.edition" label="版次" placeholder="如 第3版" clearable />
+    </div>
+
     <div class="price-filter">
       <van-field
         v-model.number="filters.minPrice"
@@ -74,6 +79,8 @@ const filters = reactive({
   sort: 'createdAt',
   minPrice: undefined as number | undefined,
   maxPrice: undefined as number | undefined,
+  courseCode: '',
+  edition: '',
 });
 
 const categoryOptions = [
@@ -108,6 +115,8 @@ const onSearch = async () => {
     if (filters.condition) params.condition = filters.condition;
     if (filters.minPrice !== undefined) params.minPrice = filters.minPrice;
     if (filters.maxPrice !== undefined) params.maxPrice = filters.maxPrice;
+    if (filters.courseCode.trim()) params.courseCode = filters.courseCode.trim().toUpperCase();
+    if (filters.edition.trim()) params.edition = filters.edition.trim();
     
     if (filters.sort === 'price_asc') {
       params.sort = 'price';
@@ -140,6 +149,10 @@ watch([() => filters.category, () => filters.condition, () => filters.sort], onS
   align-items: center;
   gap: 8px;
   padding: 12px;
+  background: white;
+  margin-top: 8px;
+}
+.match-filter {
   background: white;
   margin-top: 8px;
 }

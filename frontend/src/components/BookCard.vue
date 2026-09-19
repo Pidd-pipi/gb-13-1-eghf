@@ -13,15 +13,22 @@
         <div class="tags">
           <span class="condition-tag">{{ conditionMap[book.condition] }}</span>
           <span class="category-tag">{{ categoryMap[book.category] }}</span>
+          <span class="match-tag">{{ book.campus }} · {{ book.courseCode }} · {{ book.edition }}</span>
         </div>
       </div>
       <div class="price-row">
         <span class="book-price">¥{{ book.price }}</span>
         <span class="book-original-price">¥{{ book.originalPrice }}</span>
       </div>
-      <div v-if="book.seller" class="seller-info">
-        <van-icon name="user-o" size="12" />
-        <span>{{ book.seller.name || book.seller.department || '匿名用户' }}</span>
+      <div class="card-footer">
+        <div v-if="book.seller" class="seller-info">
+          <van-icon name="user-o" size="12" />
+          <span>{{ book.seller.name || book.seller.department || '匿名用户' }}</span>
+        </div>
+        <span v-if="book.matchingRequestCount !== undefined" class="match-count">
+          <van-icon name="notes-o" size="12" />
+          {{ book.matchingRequestCount }} 张同版求购单
+        </span>
       </div>
     </div>
   </div>
@@ -87,6 +94,15 @@ defineEmits<{
   background: #f6ffed;
   color: #52c41a;
 }
+.match-tag {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  margin-right: 6px;
+  background: #f4f0ff;
+  color: #722ed1;
+}
 .price-row {
   margin-top: 8px;
 }
@@ -101,12 +117,26 @@ defineEmits<{
   text-decoration: line-through;
   margin-left: 8px;
 }
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  gap: 8px;
+}
 .seller-info {
   display: flex;
   align-items: center;
   font-size: 12px;
   color: #666;
-  margin-top: 8px;
   gap: 4px;
+}
+.match-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: #1989fa;
+  white-space: nowrap;
 }
 </style>

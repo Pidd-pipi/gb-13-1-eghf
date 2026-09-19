@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { In } from 'typeorm';
-import { AppDataSource } from '../config/database';
+import { ds } from '../services/db';
 import { Message } from '../entities/Message';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { minioService } from '../services/minio.service';
@@ -24,7 +24,7 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       }
     }
 
-    const messageRepository = AppDataSource.getRepository(Message);
+    const messageRepository = ds().getRepository(Message);
     const newMessage = messageRepository.create({
       senderId: req.userId!,
       receiverId,
@@ -41,7 +41,7 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 export const getConversations = async (req: AuthenticatedRequest, res: Response) => {
-  const messageRepository = AppDataSource.getRepository(Message);
+  const messageRepository = ds().getRepository(Message);
   const userId = req.userId!;
 
   const messages = await messageRepository
@@ -65,7 +65,7 @@ export const getConversations = async (req: AuthenticatedRequest, res: Response)
 export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
   const { otherUserId, bookId } = req.query;
 
-  const messageRepository = AppDataSource.getRepository(Message);
+  const messageRepository = ds().getRepository(Message);
   const userId = req.userId!;
 
   const where: any = [
@@ -91,7 +91,7 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 export const getUnreadCount = async (req: AuthenticatedRequest, res: Response) => {
-  const messageRepository = AppDataSource.getRepository(Message);
+  const messageRepository = ds().getRepository(Message);
   const count = await messageRepository.count({
     where: { receiverId: req.userId, isRead: false },
   });
